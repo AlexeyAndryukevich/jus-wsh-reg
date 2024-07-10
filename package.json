@@ -1,0 +1,19 @@
+{
+  "name": "jhs-wsh-reg-be",
+  "version": "1.0.0",
+  "description": "BE side for registration on workshops in JSH camp.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [],
+  "author": "oleksii-andriukevych",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.12.0"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}
