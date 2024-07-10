@@ -17,7 +17,7 @@ const db = new Client({
 
 db.connect();
 
- app.listen(PORT);
+app.listen(process.env.PORT || PORT);
 
 app.get('/registration', async (req, res) => {
     const dbRes = await getWorkshops();
