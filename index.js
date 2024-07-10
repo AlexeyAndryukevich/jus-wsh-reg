@@ -7,7 +7,7 @@ console.log('it works 111');
 const db = new Client({
     host: process.env.HOST,
     user: process.env.DB_USER,
-    port: process.env.PORT,
+    port: process.env.DB_PORT,
     password: process.env.PASSWORD,
     database: process.env.DATABASE,
     ssl: {
@@ -17,7 +17,7 @@ const db = new Client({
 
 db.connect();
 
-app.listen(PORT);
+ app.listen(8080);
 
 app.get('/registration', async (req, res) => {
     const dbRes = await getWorkshops();
