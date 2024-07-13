@@ -30,9 +30,15 @@ console.log('it works 111');
 // workshops
 app.get('/workshops', async (req, res) => {
   try {
-    const dbRes = await db.query(`SELECT * FROM workshop`);
+    const workshopsList = await db.query(`SELECT * FROM workshop`);
     db.end;
-    res.status(200).send(dbRes.rows);
+
+    const occupieds = await db.query(`select workshopid, count(workshopid) FROM public.workshopassingment
+where datetime >= now()::date
+group by workshopid`);
+    db.end;
+    const result = workshopsList.rows.map(x => { return {...x, occupied: occupieds.rows.find(y => y.workshopid === x.id)?.count }});
+    res.status(200).send(result);
   } catch (err) {
     console.error(err);
     res.status(500).send(err);
