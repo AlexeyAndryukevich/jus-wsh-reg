@@ -42,7 +42,7 @@ app.get('/workshops', async (req, res) => {
 })
 
 // registrations
-app.get('/registrations', async (req, res) => {
+app.get('/summary', async (req, res) => {
   try {
     const dbRes = await db.query(`select w."name", wa.membername,  wa.memberid, wa.datetime  FROM public.workshopassingment wa
 join public.workshop w on w.id = wa.workshopid 
