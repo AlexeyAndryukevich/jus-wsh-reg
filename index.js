@@ -28,8 +28,7 @@ app.listen(PORT);
 console.log('it works 111');
 
 // с 12:30 9:30
-// проверка чтоб не записівались 2 раза
-// лимит на 
+
 
 // workshops
 app.get('/workshops', async (req, res) => {
@@ -58,7 +57,7 @@ group by workshopid`);
 // registrations
 app.get('/registrations/:id', async (req, res) => {
   try {
-    const dbRes = await db.query(`select w."name", wa.membername,  wa.memberid, wa.datetime FROM public.workshopassingment wa
+    const dbRes = await db.query(`select w."name", wa.membername, wa.memberid, wa.datetime FROM public.workshopassingment wa
 join public.workshop w on w.id = wa.workshopid 
 where wa.memberid = '${req.params.id}' order by wa.datetime`);
     db.end;
@@ -109,9 +108,7 @@ app.post('/registrations', async (req, res) => {
 
     const occupied = `select count(*) FROM public.workshopassingment
 where datetime >= now()::date and workshopid = '${reg.workshopId}'`;
-
     const capacity = `select capacity FROM public.workshop Where id = '${reg.workshopId}'`;
-
     if (occupied >= capacity) {
       res.status(401).send(`Всі місця на воркшоп "${reg.workshopName}" зайняті`);
     }
@@ -120,12 +117,20 @@ where datetime >= now()::date and workshopid = '${reg.workshopId}'`;
 join public.workshop w on w.id = wa.workshopid 
 where datetime >= now()::date and wa.memberid = '${reg.memberId}'`;
 console.log(checkQuery);
-
     const dbCheckRes = await db.query(checkQuery);
     db.end;
-
     if (dbCheckRes.rowCount > 0) {
       res.status(409).send(`Ви вже зареєстровані на сьогодні на воркшоп "${dbCheckRes.rows[0].name}"`);
+    }
+
+    const checkPeriod = `select w."name", wa.membername,  wa.memberid, wa.datetime  FROM public.workshopassingment wa
+    join public.workshop w on w.id = wa.workshopid 
+    where wa.memberid = '${reg.memberId}' and wa.workshopid = '${reg.workshopId}'`;
+    console.log(checkPeriod);
+    const dbcheckPeriodRes = await db.query(checkPeriod);
+    db.end;
+    if (dbcheckPeriodRes.rowCount > 0) {
+      res.status(409).send(`Ви вже реєструвались на цей воркшоп за цю зміну"`);
     }
 
     const insertQuery = `INSERT INTO public.workshopassingment
