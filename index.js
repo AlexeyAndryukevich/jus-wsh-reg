@@ -27,9 +27,19 @@ db.connect();
 app.listen(PORT);
 console.log('it works 111');
 
+// с 12:30 9:30
+// проверка чтоб не записівались 2 раза
+// лимит на 
+
 // workshops
 app.get('/workshops', async (req, res) => {
   try {
+    //const closeRegTime = 
+
+    // if (new Date().getHours() <= 22) {
+    //   res.status(404).send('Ще рано!');
+    // }
+
     const workshopsList = await db.query(`SELECT * FROM workshop`);
     db.end;
 
@@ -97,6 +107,15 @@ app.post('/registrations', async (req, res) => {
     }
     console.log(reg);
 
+    const occupied = `select count(*) FROM public.workshopassingment
+where datetime >= now()::date and workshopid = '${reg.workshopId}'`;
+
+    const capacity = `select capacity FROM public.workshop Where id = '${reg.workshopId}'`;
+
+    if (occupied >= capacity) {
+      res.status(401).send(`Всі місця на воркшоп "${reg.workshopName}" зайняті`);
+    }
+
     const checkQuery = `select w."name", wa.membername,  wa.memberid, wa.datetime  FROM public.workshopassingment wa
 join public.workshop w on w.id = wa.workshopid 
 where datetime >= now()::date and wa.memberid = '${reg.memberId}'`;
@@ -104,6 +123,7 @@ console.log(checkQuery);
 
     const dbCheckRes = await db.query(checkQuery);
     db.end;
+
     if (dbCheckRes.rowCount > 0) {
       res.status(409).send(`Ви вже зареєстровані на сьогодні на воркшоп "${dbCheckRes.rows[0].name}"`);
     }
@@ -114,7 +134,7 @@ console.log(checkQuery);
     const dbRes = await db.query(insertQuery);
     db.end;
     console.log(dbRes);
-    res.status(200).send(`Вітаємо, ${reg.memberName}! Ви успішно зареєстровані на воркшоп "${reg.workshopName}"`);
+    res.status(200).send({message: `Вітаємо, ${reg.memberName}! Ви успішно зареєстровані на воркшоп "${reg.workshopName}"`});
   } catch (err) {
     console.error(err);
     res.status(500).send(err);
