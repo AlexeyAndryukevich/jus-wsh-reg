@@ -27,17 +27,24 @@ db.connect();
 app.listen(PORT);
 console.log('it works 111');
 
-// с 12:30 9:30
-
+// Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client
 
 // workshops
 app.get('/workshops', async (req, res) => {
   try {
-    //const closeRegTime = 
+    const closeRegTime = new Date();
+    closeRegTime.setHours(9);
+    closeRegTime.setMinutes(30);
 
-    // if (new Date().getHours() <= 22) {
-    //   res.status(404).send('Ще рано!');
-    // }
+    const openRegTime = new Date();
+    openRegTime.setHours(13);
+
+    const now = new Date();
+
+    if (now >= closeRegTime && now <= openRegTime) {
+      res.status(404).send('Реєстрацію на сьогоднішні воркшопи закрито!');
+      return;
+    }
 
     const workshopsList = await db.query(`SELECT * FROM workshop`);
     db.end;
@@ -111,6 +118,7 @@ where datetime >= now()::date and workshopid = '${reg.workshopId}'`;
     const capacity = `select capacity FROM public.workshop Where id = '${reg.workshopId}'`;
     if (occupied >= capacity) {
       res.status(401).send(`Всі місця на воркшоп "${reg.workshopName}" зайняті`);
+      return;
     }
 
     const checkQuery = `select w."name", wa.membername,  wa.memberid, wa.datetime  FROM public.workshopassingment wa
@@ -121,6 +129,7 @@ console.log(checkQuery);
     db.end;
     if (dbCheckRes.rowCount > 0) {
       res.status(409).send(`Ви вже зареєстровані на сьогодні на воркшоп "${dbCheckRes.rows[0].name}"`);
+      return;
     }
 
     const checkPeriod = `select w."name", wa.membername,  wa.memberid, wa.datetime  FROM public.workshopassingment wa
@@ -131,6 +140,7 @@ console.log(checkQuery);
     db.end;
     if (dbcheckPeriodRes.rowCount > 0) {
       res.status(409).send(`Ви вже реєструвались на цей воркшоп за цю зміну"`);
+      return;
     }
 
     const insertQuery = `INSERT INTO public.workshopassingment
