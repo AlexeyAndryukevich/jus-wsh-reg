@@ -44,9 +44,24 @@ app.get('/workshops', async (req, res) => {
 // registrations
 app.get('/registrations', async (req, res) => {
   try {
-    const dbRes = await db.query(`SELECT * FROM public.workshopassingment where datetime >= now()::date`);
+    const dbRes = await db.query(`select w."name", wa.membername,  wa.memberid, wa.datetime  FROM public.workshopassingment wa
+join public.workshop w on w.id = wa.workshopid 
+where datetime >= now()::date`);
     db.end;
-    res.status(200).send(dbRes.rows);
+    const registrations = [];
+
+    dbRes.rows.forEach(x => {
+      registrations.push({
+        name: x.name,
+        membername: x.membername,
+        memberid: x.memberid,
+        datetime: x.datetime,
+      });
+    })
+
+    const groupedRegistrations = Object.groupBy(registrations, ({ name }) => name);
+
+    res.status(200).send(groupedRegistrations);
   } catch (err) {
     console.error(err);
     res.status(500).send(err);
