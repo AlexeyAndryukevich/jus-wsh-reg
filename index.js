@@ -83,6 +83,7 @@ app.post('/registrations', async (req, res) => {
   try {
     const reg = {
       workshopId: req.body.workshopId,
+      workshopName: req.body.workshopName,
       memberId: req.body.memberId,
       memberName: req.body.memberName,
       deviceId: req.body.deviceId,
@@ -107,7 +108,7 @@ console.log(checkQuery);
     const dbRes = await db.query(insertQuery);
     db.end;
     console.log(dbRes);
-    res.status(200).send(reg);
+    res.status(200).send(`Вітаємо, ${reg.memberName}! Ви успішно зареєстровані на воркшоп "${reg.workshopName}"`);
   } catch (err) {
     console.error(err);
     res.status(500).send(err);
