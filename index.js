@@ -19,9 +19,7 @@ const db = new Client({
     port: process.env.DB_PORT,
     password: process.env.PASSWORD,
     database: process.env.DATABASE,
-    ssl: {
-        rejectUnauthorized: false,
-      }
+    ssl: false
 })
 
 db.connect();
@@ -42,6 +40,19 @@ app.get('/workshops', async (req, res) => {
 })
 
 // registrations
+app.get('/registrations/:id', async (req, res) => {
+  try {
+    const dbRes = await db.query(`select w."name", wa.membername,  wa.memberid, wa.datetime FROM public.workshopassingment wa
+join public.workshop w on w.id = wa.workshopid 
+where wa.memberid = '${req.params.id}' order by wa.datetime`);
+    db.end;
+    res.status(200).send(dbRes.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send(err);
+  }
+})
+
 app.get('/summary', async (req, res) => {
   try {
     const dbRes = await db.query(`select w."name", wa.membername,  wa.memberid, wa.datetime  FROM public.workshopassingment wa
@@ -78,10 +89,22 @@ app.post('/registrations', async (req, res) => {
       datetime: new Date()
     }
     console.log(reg);
-    const qr = `INSERT INTO public.workshopassingment
+
+    const checkQuery = `select w."name", wa.membername,  wa.memberid, wa.datetime  FROM public.workshopassingment wa
+join public.workshop w on w.id = wa.workshopid 
+where datetime >= now()::date and wa.memberid = '${reg.memberId}'`;
+console.log(checkQuery);
+
+    const dbCheckRes = await db.query(checkQuery);
+    db.end;
+    if (dbCheckRes.rowCount > 0) {
+      res.status(409).send(`Ви вже зареєстровані на сьогодні на воркшоп "${dbCheckRes.rows[0].name}"`);
+    }
+
+    const insertQuery = `INSERT INTO public.workshopassingment
       (workshopid, memberid, membername, deviceid, datetime)
       VALUES( '${reg.workshopId}', '${reg.memberId}', '${reg.memberName}', '${reg.deviceId}', '${reg.datetime.toISOString()}');`
-    const dbRes = await db.query(qr);
+    const dbRes = await db.query(insertQuery);
     db.end;
     console.log(dbRes);
     res.status(200).send(reg);
