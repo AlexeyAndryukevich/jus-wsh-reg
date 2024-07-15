@@ -27,32 +27,42 @@ db.connect();
 app.listen(PORT);
 console.log('it works 111');
 
-// Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client
-
 // workshops
 app.get('/workshops', async (req, res) => {
   try {
     const closeRegTime = new Date();
-    closeRegTime.setHours(9);
-    closeRegTime.setMinutes(30);
+    closeRegTime.setHours(11);
+    closeRegTime.setMinutes(20);
 
     const openRegTime = new Date();
-    openRegTime.setHours(13);
+    openRegTime.setHours(12);
+    openRegTime.setMinutes(30);
+
 
     const now = new Date();
 
     if (now >= closeRegTime && now <= openRegTime) {
-      res.status(404).send('Реєстрацію на сьогоднішні воркшопи закрито!');
+      res.status(404).send({message: 'Реєстрацію на сьогоднішні воркшопи закрито!'});
       return;
     }
 
     const workshopsList = await db.query(`SELECT * FROM workshop`);
     db.end;
 
-    const occupieds = await db.query(`select workshopid, count(workshopid) FROM public.workshopassingment
-where datetime >= now()::date
-group by workshopid`);
-    db.end;
+    let occupieds = 0;
+    if (now < closeRegTime) {
+      occupieds = await db.query(`select workshopid, count(workshopid) FROM public.workshopassingment
+        where datetime >= now()::date - interval '13 hour 30 minutes'
+        group by workshopid`);
+        db.end;
+
+    } else {
+      occupieds = await db.query(`select workshopid, count(workshopid) FROM public.workshopassingment
+        where datetime >= now()::date + interval '9 hour 30 minutes'
+        group by workshopid`);
+            db.end;
+    }
+
     const result = workshopsList.rows.map(x => { return {...x, occupied: occupieds.rows.find(y => y.workshopid === x.id)?.count }});
     res.status(200).send(result);
   } catch (err) {
@@ -77,10 +87,25 @@ where wa.memberid = '${req.params.id}' order by wa.datetime`);
 
 app.get('/summary', async (req, res) => {
   try {
-    const dbRes = await db.query(`select w."name", wa.membername,  wa.memberid, wa.datetime  FROM public.workshopassingment wa
-join public.workshop w on w.id = wa.workshopid 
-where datetime >= now()::date`);
-    db.end;
+    const openRegTime = new Date();
+    openRegTime.setHours(12);
+    openRegTime.setMinutes(30);
+
+    const now = new Date();
+    let dbRes;
+
+    if (now < openRegTime) {
+      dbRes = await db.query(`select w."name", wa.membername,  wa.memberid, wa.datetime  FROM public.workshopassingment wa
+        join public.workshop w on w.id = wa.workshopid 
+        where datetime >= now()::date - interval '13 hour 30 minutes'`);
+        db.end;
+    } else {
+      dbRes = await db.query(`select w."name", wa.membername,  wa.memberid, wa.datetime  FROM public.workshopassingment wa
+        join public.workshop w on w.id = wa.workshopid 
+        where datetime >= now()::date + interval '9 hour 30 minutes'`);
+            db.end;
+    }
+
     const registrations = [];
 
     dbRes.rows.forEach(x => {
@@ -101,6 +126,7 @@ where datetime >= now()::date`);
   }
 })
 
+// fix time collision
 app.post('/registrations', async (req, res) => {
   try {
     const reg = {
@@ -113,33 +139,59 @@ app.post('/registrations', async (req, res) => {
     }
     console.log(reg);
 
-    const occupied = `select count(*) FROM public.workshopassingment
-where datetime >= now()::date and workshopid = '${reg.workshopId}'`;
-    const capacity = `select capacity FROM public.workshop Where id = '${reg.workshopId}'`;
+    const openRegTime = new Date();
+    openRegTime.setHours(12);
+    openRegTime.setMinutes(30);
+
+    const now = new Date();
+    let occupied;
+
+    if (now < openRegTime) {
+      occupied = (await db.query(`select count(*) FROM public.workshopassingment
+        where datetime >= now()::date - interval '13 hour 30 minutes' and workshopid = '${reg.workshopId}'`)).rows[0].count;
+      db.end;
+    } else {
+      occupied = (await db.query(`select count(*) FROM public.workshopassingment
+        where datetime >= now()::date + interval '9 hour 30 minutes' and workshopid = '${reg.workshopId}'`)).rows[0].count;
+      db.end;
+    }
+    const capacity = (await db.query(`select capacity FROM public.workshop Where id = '${reg.workshopId}'`)).rows[0].capacity;
+    db.end;
+
+    console.log('occupied', occupied)
+    console.log('capacity', capacity)
+    console.log('occupied >= capacity', occupied >= capacity)
     if (occupied >= capacity) {
-      res.status(401).send(`Всі місця на воркшоп "${reg.workshopName}" зайняті`);
+      res.status(400).send({message: `Всі місця на воркшоп "${reg.workshopName}" зайняті`});
       return;
     }
+    let checkQuery;
 
-    const checkQuery = `select w."name", wa.membername,  wa.memberid, wa.datetime  FROM public.workshopassingment wa
-join public.workshop w on w.id = wa.workshopid 
-where datetime >= now()::date and wa.memberid = '${reg.memberId}'`;
+    if (now < openRegTime) {
+      checkQuery = `select w."name", wa.membername,  wa.memberid, wa.datetime  FROM public.workshopassingment wa
+        join public.workshop w on w.id = wa.workshopid 
+        where datetime >= now()::date - interval '13 hour 30 minutes' and wa.memberid = '${reg.memberId}'`;
+    } else {
+      checkQuery = `select w."name", wa.membername,  wa.memberid, wa.datetime  FROM public.workshopassingment wa
+        join public.workshop w on w.id = wa.workshopid 
+        where datetime >= now()::date + interval '9 hour 30 minutes' and wa.memberid = '${reg.memberId}'`;
+    }
 console.log(checkQuery);
     const dbCheckRes = await db.query(checkQuery);
     db.end;
     if (dbCheckRes.rowCount > 0) {
-      res.status(409).send(`Ви вже зареєстровані на сьогодні на воркшоп "${dbCheckRes.rows[0].name}"`);
+      res.status(409).send({message: `${dbCheckRes.rows[0].membername} вже зареєстрован(-на) на сьогодні на воркшоп "${dbCheckRes.rows[0].name}"`});
       return;
     }
 
     const checkPeriod = `select w."name", wa.membername,  wa.memberid, wa.datetime  FROM public.workshopassingment wa
-    join public.workshop w on w.id = wa.workshopid 
-    where wa.memberid = '${reg.memberId}' and wa.workshopid = '${reg.workshopId}'`;
+      join public.workshop w on w.id = wa.workshopid 
+      where wa.memberid = '${reg.memberId}' and wa.workshopid = '${reg.workshopId}'`;
     console.log(checkPeriod);
     const dbcheckPeriodRes = await db.query(checkPeriod);
     db.end;
     if (dbcheckPeriodRes.rowCount > 0) {
-      res.status(409).send(`Ви вже реєструвались на цей воркшоп за цю зміну"`);
+      res.status(409).send({message: `Ви вже реєструвались на цей воркшоп за цю зміну`});
       return;
     }
 
