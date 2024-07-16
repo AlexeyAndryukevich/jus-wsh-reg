@@ -32,7 +32,7 @@ app.get('/workshops', async (req, res) => {
   try {
     const closeRegTime = new Date();
     closeRegTime.setHours(11);
-    closeRegTime.setMinutes(20);
+    closeRegTime.setMinutes(30);
 
     const openRegTime = new Date();
     openRegTime.setHours(12);
@@ -95,13 +95,15 @@ app.get('/summary', async (req, res) => {
     let dbRes;
 
     if (now < openRegTime) {
-      dbRes = await db.query(`select w."name", wa.membername,  wa.memberid, wa.datetime  FROM public.workshopassingment wa
+      dbRes = await db.query(`select w."name", h.lastname, h.firstname, wa.memberid, wa.datetime  FROM public.workshopassingment wa
         join public.workshop w on w.id = wa.workshopid 
+        join public.hanihim h on h.id  = wa.memberid 
         where datetime >= now()::date - interval '13 hour 30 minutes'`);
         db.end;
     } else {
-      dbRes = await db.query(`select w."name", wa.membername,  wa.memberid, wa.datetime  FROM public.workshopassingment wa
+      dbRes = await db.query(`select w."name", h.lastname, h.firstname, wa.memberid, wa.datetime  FROM public.workshopassingment wa
         join public.workshop w on w.id = wa.workshopid 
+        join public.hanihim h on h.id  = wa.memberid 
         where datetime >= now()::date + interval '9 hour 30 minutes'`);
             db.end;
     }
@@ -111,7 +113,7 @@ app.get('/summary', async (req, res) => {
     dbRes.rows.forEach(x => {
       registrations.push({
         name: x.name,
-        membername: x.membername,
+        membername: `${x.lastname} ${x.firstname}`,
         memberid: x.memberid,
         datetime: x.datetime,
       });
@@ -133,7 +135,6 @@ app.post('/registrations', async (req, res) => {
       workshopId: req.body.workshopId,
       workshopName: req.body.workshopName,
       memberId: req.body.memberId,
-      memberName: req.body.memberName,
       deviceId: req.body.deviceId,
       datetime: new Date()
     }
@@ -168,11 +169,11 @@ app.post('/registrations', async (req, res) => {
     let checkQuery;
 
     if (now < openRegTime) {
-      checkQuery = `select w."name", wa.membername,  wa.memberid, wa.datetime  FROM public.workshopassingment wa
+      checkQuery = `select w."name",  wa.memberid, wa.datetime  FROM public.workshopassingment wa
         join public.workshop w on w.id = wa.workshopid 
         where datetime >= now()::date - interval '13 hour 30 minutes' and wa.memberid = '${reg.memberId}'`;
     } else {
-      checkQuery = `select w."name", wa.membername,  wa.memberid, wa.datetime  FROM public.workshopassingment wa
+      checkQuery = `select w."name",  wa.memberid, wa.datetime  FROM public.workshopassingment wa
         join public.workshop w on w.id = wa.workshopid 
         where datetime >= now()::date + interval '9 hour 30 minutes' and wa.memberid = '${reg.memberId}'`;
     }
@@ -180,11 +181,11 @@ console.log(checkQuery);
     const dbCheckRes = await db.query(checkQuery);
     db.end;
     if (dbCheckRes.rowCount > 0) {
-      res.status(409).send({message: `${dbCheckRes.rows[0].membername} вже зареєстрован(-на) на сьогодні на воркшоп "${dbCheckRes.rows[0].name}"`});
+      res.status(409).send({message: `${dbCheckRes.rows[0].memberid} вже зареєстрован(-на) на сьогодні на воркшоп "${dbCheckRes.rows[0].name}"`});
       return;
     }
 
-    const checkPeriod = `select w."name", wa.membername,  wa.memberid, wa.datetime  FROM public.workshopassingment wa
+    const checkPeriod = `select w."name",   wa.memberid, wa.datetime  FROM public.workshopassingment wa
       join public.workshop w on w.id = wa.workshopid 
       where wa.memberid = '${reg.memberId}' and wa.workshopid = '${reg.workshopId}'`;
     console.log(checkPeriod);
@@ -196,12 +197,12 @@ console.log(checkQuery);
     }
 
     const insertQuery = `INSERT INTO public.workshopassingment
-      (workshopid, memberid, membername, deviceid, datetime)
-      VALUES( '${reg.workshopId}', '${reg.memberId}', '${reg.memberName}', '${reg.deviceId}', '${reg.datetime.toISOString()}');`
+      (workshopid, memberid, deviceid, datetime)
+      VALUES( '${reg.workshopId}', '${reg.memberId}', '${reg.deviceId}', '${reg.datetime.toISOString()}');`
     const dbRes = await db.query(insertQuery);
     db.end;
     console.log(dbRes);
-    res.status(200).send({message: `Вітаємо, ${reg.memberName}! Ви успішно зареєстровані на воркшоп "${reg.workshopName}"`});
+    res.status(200).send({message: `Вітаємо, ${reg.memberId}! Ви успішно зареєстровані на воркшоп "${reg.workshopName}"`});
   } catch (err) {
     console.error(err);
     res.status(500).send(err);
